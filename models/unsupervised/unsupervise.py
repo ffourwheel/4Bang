@@ -106,7 +106,6 @@ def run_pipeline(data_path):
 
     df['cluster'] = labels
 
-    # save model
     save_model(
         model,
         scaler,
@@ -114,7 +113,6 @@ def run_pipeline(data_path):
         "models/unsupervised/scaler.pkl"
     )
 
-    # save result for frontend
     df.to_json("modo-app/public/cluster_result.json",
                orient="records", force_ascii=False)
 
