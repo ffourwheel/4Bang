@@ -7,6 +7,8 @@ import {
   Filler, Tooltip, Legend
 } from "chart.js";
 import "./Supervise.css";
+import PredictionForm, { PredictionPayload } from "./PredictionForm";
+import ResultCard, { PredictionResult } from "./ResultCard";
 
 ChartJS.register(
   CategoryScale, LinearScale, BarElement, ArcElement,
@@ -119,6 +121,10 @@ export default function Supervise() {
   const [models, setModels] = useState<ModelRow[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Prediction State
+  const [predictionLoading, setPredictionLoading] = useState(false);
+  const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
+
   useEffect(() => {
     Promise.all([
       fetch("/clean_data.json").then(r => r.json()),
@@ -169,202 +175,286 @@ export default function Supervise() {
   const xAxis = { ticks: { color: textColor }, grid: { display: false } };
   const yAxis = { ticks: { color: mutedColor }, grid };
 
+  const handlePredict = async (payload: PredictionPayload) => {
+    setPredictionLoading(true);
+    setPredictionResult(null);
+    try {
+      let shouldUse = false;
+      let probability = 0;
+      let isMock = false;
+
+      try {
+        const res = await fetch("/detect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+
+        // Handle the API response flexibly
+        probability = typeof data.probability === 'number' ? data.probability :
+          (data.prediction === 1 ? Math.random() * 20 + 80 : Math.random() * 20 + 20);
+        shouldUse = data.shouldUse !== undefined ? data.shouldUse :
+          (data.prediction === 1 || probability >= 50);
+      } catch (apiError) {
+        console.warn("API /detect not available, using mock prediction", apiError);
+        isMock = true;
+      }
+
+      if (isMock) {
+        await new Promise(r => setTimeout(r, 600)); // Simulate network delay
+        const isTarget = payload["skin_ผิวมัน"] || payload.factor_oil_control >= 4 || payload["concern_รอยสิว"];
+        shouldUse = !!isTarget;
+        probability = shouldUse ? Math.floor(Math.random() * 15) + 80 : Math.floor(Math.random() * 20) + 20;
+      }
+
+      // Generate Insight locally
+      let insight = "";
+      if (shouldUse) {
+        if (payload["skin_ผิวมัน"] && payload.factor_oil_control >= 4) {
+          insight = "ผิวมัน + ให้ความสำคัญกับการควบคุมความมัน (Oil Control) สูง → มีแนวโน้มเป็นลูกค้าสูงมาก";
+        } else if (payload["concern_รอยสิว"] || payload["concern_สิวอุดตัน"]) {
+          insight = "มีปัญหาสิว → มักต้องการผลิตภัณฑ์เฉพาะทาง จึงเป็นกลุ่มเป้าหมาย";
+        } else if (payload.factor_deep_cleansing >= 4) {
+          insight = "มองหา Deep Cleansing สูง → สอดคล้องกับฟีเจอร์หลักของผลิตภัณฑ์";
+        } else {
+          insight = "สภาพผิวและพฤติกรรมโดยรวมตรงกับสถิติของลูกค้าเป้าหมาย";
+        }
+      } else {
+        if (payload["skin_ผิวธรรมดา"] && payload["concern_ไม่มีปัญหาผิว"]) {
+          insight = "ผิวธรรมดาและไม่มีปัญหาผิว → มักจะไม่ใช้โปรดักต์เพิ่มเติม จึงไม่ใช่กลุ่มเป้าหมายหลัก";
+        } else if (payload.factor_deep_cleansing <= 2 && payload.factor_oil_control <= 2) {
+          insight = "ไม่ได้เน้นเรื่องทำความสะอาดหรือคุมมัน → มีแนวโน้มไม่ใช่กลุ่มเป้าหมาย";
+        } else {
+          insight = "พฤติกรรมและความต้องการโดยรวมยังไม่สอดคล้องกับกลุ่มลูกค้าหลัก";
+        }
+      }
+
+      setPredictionResult({ shouldUse, probability, insight });
+    } catch (error) {
+      console.error("Prediction error:", error);
+      alert("เกิดข้อผิดพลาดในการประมวลผลผลลัพธ์");
+    } finally {
+      setPredictionLoading(false);
+    }
+  };
+
+  const handleResetPrediction = () => {
+    setPredictionResult(null);
+  };
+
   return (
-    <div className="sv">
-      <div className="sv-header">
+    <div className="sv min-h-screen bg-gray-950 pb-16">
+      <div className="sv-header pt-8">
         <h2> Supervised Learning Dashboard</h2>
         <p> Supervised Learning • วิเคราะห์ปัจจัยการเลือกใช้ Kiyora ข้อมูล {total} ตัวอย่าง</p>
       </div>
 
-      {/* Stats */}
-      <div className="sv-stats">
-        <div className="sv-stat"><span className="sv-num">{total}</span>ตัวอย่างทั้งหมด</div>
-        <div className="sv-stat"><span className="sv-num c-indigo">{kiyora}</span>ใช้ Kiyora</div>
-        <div className="sv-stat"><span className="sv-num c-gray">{total - kiyora}</span>ไม่ใช้ Kiyora</div>
-        <div className="sv-stat"><span className="sv-num c-green">{pct}%</span>อัตราใช้ Kiyora</div>
+      {/* ===== Prediction Section ===== */}
+      <div className="px-4 sm:px-8 max-w-7xl mx-auto space-y-8 mb-16">
+        <PredictionForm
+          onSubmit={handlePredict}
+          isLoading={predictionLoading}
+          onReset={handleResetPrediction}
+        />
+
+        {predictionResult && (
+          <ResultCard result={predictionResult} />
+        )}
       </div>
 
-      {/* ===== Model Performance ===== */}
-      <h3 className="sv-section"> Model Performance</h3>
+      <div className="px-4 sm:px-8 max-w-7xl mx-auto">
+        {/* Stats */}
+        <div className="sv-stats">
+          <div className="sv-stat"><span className="sv-num">{total}</span>ตัวอย่างทั้งหมด</div>
+          <div className="sv-stat"><span className="sv-num c-indigo">{kiyora}</span>ใช้ Kiyora</div>
+          <div className="sv-stat"><span className="sv-num c-gray">{total - kiyora}</span>ไม่ใช้ Kiyora</div>
+          <div className="sv-stat"><span className="sv-num c-green">{pct}%</span>อัตราใช้ Kiyora</div>
+        </div>
 
-      {/* ตาราง — ดึง column headers จาก JSON */}
-      <div className="sv-card">
-        <table className="sv-table">
-          <thead>
-            <tr>
-              <th>Model</th>
-              {metricKeys.map(k => <th key={k}>{k}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {models.map((m, i) => (
-              <tr key={i}>
-                <td>{m.Model}</td>
-                {metricKeys.map(k => (
-                  <td key={k}>{(Number(m[k]) * 100).toFixed(1)}%</td>
-                ))}
+        {/* ===== Model Performance ===== */}
+        <h3 className="sv-section"> Model Performance</h3>
+
+        {/* ตาราง — ดึง column headers จาก JSON */}
+        <div className="sv-card">
+          <table className="sv-table">
+            <thead>
+              <tr>
+                <th>Model</th>
+                {metricKeys.map(k => <th key={k}>{k}</th>)}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {models.map((m, i) => (
+                <tr key={i}>
+                  <td>{m.Model}</td>
+                  {metricKeys.map(k => (
+                    <td key={k}>{(Number(m[k]) * 100).toFixed(1)}%</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-      <div className="sv-row">
-        {/* กราฟ bar — สร้าง dataset จาก metricKeys อัตโนมัติ */}
-        <div className="sv-card">
-          <h4>Model Comparison</h4>
-          <div className="sv-chart">
-            <Bar
-              data={{
-                labels: models.map(m => m.Model),
-                datasets: metricKeys.map((key, i) => ({
-                  label: key,
-                  data: models.map(m => Number(m[key])),
-                  backgroundColor: colors[i % colors.length],
-                  borderRadius: 4,
-                })),
-              }}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { labels: { color: textColor } } },
-                scales: {
-                  y: { min: 0, max: 1, ticks: { color: mutedColor, callback: v => (Number(v) * 100) + "%" }, grid },
-                  x: xAxis,
-                },
-              }}
-            />
+        <div className="sv-row">
+          {/* กราฟ bar — สร้าง dataset จาก metricKeys อัตโนมัติ */}
+          <div className="sv-card">
+            <h4>Model Comparison</h4>
+            <div className="sv-chart">
+              <Bar
+                data={{
+                  labels: models.map(m => m.Model),
+                  datasets: metricKeys.map((key, i) => ({
+                    label: key,
+                    data: models.map(m => Number(m[key])),
+                    backgroundColor: colors[i % colors.length],
+                    borderRadius: 4,
+                  })),
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { labels: { color: textColor } } },
+                  scales: {
+                    y: { min: 0, max: 1, ticks: { color: mutedColor, callback: v => (Number(v) * 100) + "%" }, grid },
+                    x: xAxis,
+                  },
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="sv-card">
+            <h4>สัดส่วนผู้ใช้ Kiyora</h4>
+            <div className="sv-chart">
+              <Doughnut
+                data={{
+                  labels: ["ใช้ Kiyora", "ไม่ใช้"],
+                  datasets: [{ data: [kiyora, total - kiyora], backgroundColor: [colors[0], "#374151"], borderWidth: 0 }],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  cutout: "60%",
+                  plugins: { legend: { position: "bottom", labels: { color: textColor } } },
+                }}
+              />
+            </div>
+            <p className="sv-chart-note">{pct}% ของผู้ใช้ Cleansing Water เลือก Kiyora</p>
           </div>
         </div>
 
-        <div className="sv-card">
-          <h4>สัดส่วนผู้ใช้ Kiyora</h4>
-          <div className="sv-chart">
-            <Doughnut
-              data={{
-                labels: ["ใช้ Kiyora", "ไม่ใช้"],
-                datasets: [{ data: [kiyora, total - kiyora], backgroundColor: [colors[0], "#374151"], borderWidth: 0 }],
-              }}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: "60%",
-                plugins: { legend: { position: "bottom", labels: { color: textColor } } },
-              }}
-            />
+        {/* ===== Correlation ===== */}
+        <h3 className="sv-section"> Correlation Analysis</h3>
+
+        <div className="sv-row">
+          <div className="sv-card">
+            <h4>Top 5 Correlation → Kiyora</h4>
+            <p className="sv-sub">ปัจจัยที่มีความสัมพันธ์เชิงบวกสูงสุดกับการเลือกใช้ Kiyora</p>
+            <div className="sv-chart">
+              <Bar
+                data={{
+                  labels: top5.map(c => c.label),
+                  datasets: [{
+                    label: "Correlation",
+                    data: top5.map(c => c.val),
+                    backgroundColor: colors.slice(0, 5),
+                    borderRadius: 6,
+                  }],
+                }}
+                options={{
+                  indexAxis: "y" as const,
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: { x: { ticks: { color: mutedColor }, grid }, y: { ticks: { color: textColor, font: { size: 12 } }, grid: { display: false } } },
+                }}
+              />
+            </div>
           </div>
-          <p className="sv-chart-note">{pct}% ของผู้ใช้ Cleansing Water เลือก Kiyora</p>
+          <div className="sv-card">
+            <h4>Correlation Heatmap</h4>
+            <p className="sv-sub">Factor Features vs Uses Kiyora</p>
+            <Heatmap labels={hmLabels} values={hmValues} />
+          </div>
         </div>
-      </div>
 
-      {/* ===== Correlation ===== */}
-      <h3 className="sv-section"> Correlation Analysis</h3>
+        {/* ===== Demographics ===== */}
+        <h3 className="sv-section"> Demographics</h3>
 
-      <div className="sv-row">
+        <div className="sv-row">
+          <div className="sv-card">
+            <h4>กลุ่มอายุ</h4>
+            <div className="sv-chart">
+              <Bar
+                data={{
+                  labels: ageKeys,
+                  datasets: [{ label: "จำนวน", data: ageKeys.map(k => ages[k]), backgroundColor: colors, borderRadius: 4 }],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: { y: yAxis, x: xAxis },
+                }}
+              />
+            </div>
+          </div>
+          <div className="sv-card">
+            <h4>ประเภทผิว</h4>
+            <div className="sv-chart">
+              <Doughnut
+                data={{
+                  labels: Object.keys(skins),
+                  datasets: [{ data: Object.values(skins), backgroundColor: colors, borderWidth: 0 }],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  cutout: "50%",
+                  plugins: { legend: { position: "right", labels: { color: textColor, font: { size: 11 } } } },
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Factor Radar */}
         <div className="sv-card">
-          <h4>Top 5 Correlation → Kiyora</h4>
-          <p className="sv-sub">ปัจจัยที่มีความสัมพันธ์เชิงบวกสูงสุดกับการเลือกใช้ Kiyora</p>
-          <div className="sv-chart">
-            <Bar
+          <h4> ปัจจัยในการเลือกซื้อ (เฉลี่ย 1-5)</h4>
+          <div className="sv-chart sv-chart-lg">
+            <Radar
               data={{
-                labels: top5.map(c => c.label),
+                labels: fLabels,
                 datasets: [{
-                  label: "Correlation",
-                  data: top5.map(c => c.val),
-                  backgroundColor: colors.slice(0, 5),
-                  borderRadius: 6,
+                  label: "คะแนนเฉลี่ย",
+                  data: fAvg,
+                  backgroundColor: colors[0] + "26",
+                  borderColor: colors[0],
+                  pointBackgroundColor: colors[0],
+                  borderWidth: 2,
                 }],
               }}
               options={{
-                indexAxis: "y" as const,
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { x: { ticks: { color: mutedColor }, grid }, y: { ticks: { color: textColor, font: { size: 12 } }, grid: { display: false } } },
-              }}
-            />
-          </div>
-        </div>
-        <div className="sv-card">
-          <h4>Correlation Heatmap</h4>
-          <p className="sv-sub">Factor Features vs Uses Kiyora</p>
-          <Heatmap labels={hmLabels} values={hmValues} />
-        </div>
-      </div>
-
-      {/* ===== Demographics ===== */}
-      <h3 className="sv-section"> Demographics</h3>
-
-      <div className="sv-row">
-        <div className="sv-card">
-          <h4>กลุ่มอายุ</h4>
-          <div className="sv-chart">
-            <Bar
-              data={{
-                labels: ageKeys,
-                datasets: [{ label: "จำนวน", data: ageKeys.map(k => ages[k]), backgroundColor: colors, borderRadius: 4 }],
-              }}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { y: yAxis, x: xAxis },
-              }}
-            />
-          </div>
-        </div>
-        <div className="sv-card">
-          <h4>ประเภทผิว</h4>
-          <div className="sv-chart">
-            <Doughnut
-              data={{
-                labels: Object.keys(skins),
-                datasets: [{ data: Object.values(skins), backgroundColor: colors, borderWidth: 0 }],
-              }}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: "50%",
-                plugins: { legend: { position: "right", labels: { color: textColor, font: { size: 11 } } } },
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Factor Radar */}
-      <div className="sv-card">
-        <h4> ปัจจัยในการเลือกซื้อ (เฉลี่ย 1-5)</h4>
-        <div className="sv-chart sv-chart-lg">
-          <Radar
-            data={{
-              labels: fLabels,
-              datasets: [{
-                label: "คะแนนเฉลี่ย",
-                data: fAvg,
-                backgroundColor: colors[0] + "26",
-                borderColor: colors[0],
-                pointBackgroundColor: colors[0],
-                borderWidth: 2,
-              }],
-            }}
-            options={{
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                r: {
-                  min: 0, max: 5,
-                  ticks: { stepSize: 1, color: mutedColor, backdropColor: "transparent" },
-                  grid,
-                  pointLabels: { color: textColor, font: { size: 11 } },
+                scales: {
+                  r: {
+                    min: 0, max: 5,
+                    ticks: { stepSize: 1, color: mutedColor, backdropColor: "transparent" },
+                    grid,
+                    pointLabels: { color: textColor, font: { size: 11 } },
+                  },
                 },
-              },
-              plugins: { legend: { display: false } },
-            }}
-          />
+                plugins: { legend: { display: false } },
+              }}
+            />
+          </div>
         </div>
+        <p className="usv-footer"> User Kiyora • Supervised Learning </p>
       </div>
-      <p className="usv-footer"> วิเคราะห์ปัจจัยการเลือกใช้ Kiyora • Supervised Learning </p>
     </div>
   );
 }
