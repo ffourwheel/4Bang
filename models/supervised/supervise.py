@@ -88,6 +88,7 @@ class train:
     plt.ylabel('Score')
     plt.legend()
     plt.tight_layout()
+    plt.xticks(rotation=45)
     plt.show()
     
 class plot:
