@@ -1,5 +1,7 @@
 import pandas as pd
 import json
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
@@ -31,12 +33,18 @@ y = df_clean['uses_kiyora']
 
 df_clean.to_json('modo-app/public/clean_data.json', orient='records', force_ascii=False)
 
-corr_values = X.corrwith(y)
-selected_features = corr_values[corr_values >= 0.10].index.tolist()
-X_selected = X[selected_features].copy()
-X_selected['uses_kiyora'] = y
+class corr:
+    corr = X.corrwith(y).sort_values(ascending=False)
+    print("--- ปัจจัยที่มีผลเชิงบวกต่อการเลือกใช้ Kiyora มากที่สุด ---")
+    print(corr.head(5))
 
-X_selected.to_json('modo-app/public/model_features.json', orient='records', force_ascii=False)
+    plt.rcParams['font.family'] = 'Tahoma'
+    plt.figure(figsize=(10, 8))
+    top_features = corr.abs().sort_values(ascending=False).head(10).index
+    sns.heatmap(X[top_features].join(y).corr(), annot=True, cmap='coolwarm', fmt=".2f")
+    plt.title('Correlation Heatmap (Top 10 Features vs Uses Kiyora)')
+    plt.tight_layout()
+    plt.show()
 
 class train:
     corr_values = X.corrwith(y)
@@ -66,10 +74,36 @@ class train:
 
     results_df = pd.DataFrame(results)
     print(results_df)
-
+    
     with open('modo-app/public/model_results.json', 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
 
     model = DecisionTreeClassifier(max_depth=3, random_state=42).fit(X_train, y_train)
     import joblib
     joblib.dump(model, 'models/supervised/dt.pkl')
+    
+    results_df.set_index('Model', inplace=True)
+    results_df.plot(kind='bar', figsize=(10, 6))
+    plt.title('Model Performance Comparison')
+    plt.ylabel('Score')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+    
+class plot:
+    plt.figure(figsize=(12, 5))
+    plt.subplot(1, 2, 1)
+    sns.countplot(y='age', data=df_clean, order=df_clean['age'].value_counts().index)
+    plt.title('อายุคนที่ใช้ Cleansing Water)')
+
+    plt.subplot(1, 2, 2)
+    sns.countplot(y='skin_type', data=df_clean, order=df_clean['skin_type'].value_counts().index)
+    plt.title('สภาพผิวของคนใช้ Cleansing Water')
+    plt.tight_layout()
+
+    plt.figure(figsize=(12, 6))
+    df_factors = df_clean[factor_cols].rename(columns=lambda x: x.replace('factor_', ''))
+    sns.boxplot(data=df_factors, orient='h')
+    plt.title('คะแนนปัจจัยในการเลือกซื้อ')
+    plt.tight_layout()
+    plt.show()

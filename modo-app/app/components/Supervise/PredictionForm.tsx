@@ -125,8 +125,8 @@ export default function PredictionForm({ onSubmit, isLoading, onReset }: Predict
                 <label
                   key={type}
                   className={`flex-1 cursor-pointer group relative overflow-hidden rounded-xl border p-4 transition-all duration-300 ${state.skinType === type
-                      ? "bg-indigo-500/20 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]"
-                      : "bg-black/20 border-white/10 hover:border-white/30 hover:bg-white/5"
+                    ? "bg-indigo-500/20 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.2)]"
+                    : "bg-black/20 border-white/10 hover:border-white/30 hover:bg-white/5"
                     }`}
                 >
                   <input
@@ -164,8 +164,8 @@ export default function PredictionForm({ onSubmit, isLoading, onReset }: Predict
                   <label
                     key={concern}
                     className={`cursor-pointer rounded-xl border p-3 flex items-start gap-3 transition-all duration-200 ${isSelected
-                        ? "bg-purple-500/20 border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.15)]"
-                        : "bg-black/20 border-white/10 hover:border-white/30 hover:bg-white/5"
+                      ? "bg-purple-500/20 border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.15)]"
+                      : "bg-black/20 border-white/10 hover:border-white/30 hover:bg-white/5"
                       }`}
                   >
                     <input
