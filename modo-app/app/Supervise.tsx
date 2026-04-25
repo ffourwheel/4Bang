@@ -173,7 +173,7 @@ export default function Supervise() {
     <div className="sv">
       <div className="sv-header">
         <h2> Supervised Learning Dashboard</h2>
-        <p>วิเคราะห์ปัจจัยการเลือกใช้ Kiyora • ข้อมูล {total} ตัวอย่าง</p>
+        <p> Supervised Learning • วิเคราะห์ปัจจัยการเลือกใช้ Kiyora ข้อมูล {total} ตัวอย่าง</p>
       </div>
 
       {/* Stats */}
@@ -364,8 +364,7 @@ export default function Supervise() {
           />
         </div>
       </div>
-
-      <p className="sv-footer"> ข้อมูลจาก clean_data.json + model_results.json • {total} records</p>
+      <p className="usv-footer"> วิเคราะห์ปัจจัยการเลือกใช้ Kiyora • Supervised Learning </p>
     </div>
   );
 }

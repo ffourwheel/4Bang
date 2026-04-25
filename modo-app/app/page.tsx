@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Supervise from "./Supervise";
+import Unsupervise from "./Unsupervise";
 
 export default function Home() {
   const [tab, setTab] = useState("home");
@@ -47,9 +48,7 @@ export default function Home() {
         )}
 
         {tab === "unsupervise" && (
-          <div className="full-card">
-            <h2>Unsupervise</h2>
-          </div>
+          <Unsupervise />
         )}
       </div>
     </div>
