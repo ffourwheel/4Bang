@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
-import Supervise from "./Supervise";
-import Unsupervise from "./Unsupervise";
+import Supervise from "./components/Supervise/Supervise";
+import Unsupervise from "./components/Unsupervise/Unsupervise";
 
 export default function Home() {
   const [tab, setTab] = useState("home");
