@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #000 !important;
+    min-height: 100vh;
+    font-family: sans-serif;
+  }
+}
+
+.navbar {
+  display: flex !important;
+  justify-content: center !important;
+  padding: 20px 0 !important;
+}
+
+.nav-pill {
+  display: flex !important;
+  align-items: center !important;
+  background-color: #d9d9d9 !important;
+  border-radius: 999px !important;
+  padding: 8px !important;
+  gap: 4px !important;
+  width: 590px !important;
+  max-width: 90vw !important;
+}
+
+.nav-item {
+  flex: 1 !important;
+  text-align: center !important;
+  padding: 12px 24px !important;
+  border-radius: 999px !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  color: #333 !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+.nav-item:hover {
+  background-color: #c0c0c0 !important;
+}
+
+.nav-item.active {
+  background-color: #555 !important;
+  color: #fff !important;
+}
+
+.content {
+  padding: 20px 40px !important;
+  flex: 1 !important;
+}
+
+.home-cards {
+  display: flex !important;
+  gap: 20px !important;
+  height: calc(100vh - 120px) !important;
+}
+
+.card {
+  background-color: #d9d9d9 !important;
+  border-radius: 12px !important;
+  padding: 24px !important;
+  flex: 1 !important;
+}
+
+.card h2 {
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: #333 !important;
+}
+
+.full-card {
+  background-color: #d9d9d9 !important;
+  border-radius: 12px !important;
+  padding: 24px !important;
+  height: calc(100vh - 120px) !important;
+}
+
+.full-card h2 {
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  color: #333 !important;
+}
+
+/* === Supervise Dashboard === */
+.stats-row {
+  display: flex !important;
+  gap: 16px !important;
+  flex-wrap: wrap !important;
+}
+
+.stat-card {
+  background: #fff !important;
+  border-radius: 12px !important;
+  padding: 20px 24px !important;
+  flex: 1 !important;
+  min-width: 150px !important;
+  text-align: center !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+}
+
+.stat-num {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  color: #6366f1 !important;
+}
+
+.stat-label {
+  font-size: 13px !important;
+  color: #888 !important;
+  margin-top: 4px !important;
+}
+
+.chart-row {
+  display: flex !important;
+  gap: 16px !important;
+  flex-wrap: wrap !important;
+}
+
+.chart-card {
+  background: #fff !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  flex: 1 !important;
+  min-width: 300px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+}
+
+.chart-card h3 {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: #333 !important;
+  margin-bottom: 12px !important;
+}
+
+.results-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-size: 14px !important;
+}
+
+.results-table th,
+.results-table td {
+  padding: 10px 14px !important;
+  text-align: left !important;
+  border-bottom: 1px solid #eee !important;
+  color: #333 !important;
+}
+
+.results-table th {
+  background: #f9fafb !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  color: #555 !important;
+}
+
+.results-table tbody tr:hover {
+  background: #f5f3ff !important;
+}
+
+@media (max-width: 768px) {
+  .chart-row, .stats-row {
+    flex-direction: column !important;
+  }
+  .chart-card {
+    min-width: auto !important;
+  }
+  .content {
+    padding: 12px 16px !important;
+  }
+}
