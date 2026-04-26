@@ -34,8 +34,6 @@ rename_map = {
 }
 data.rename(columns=rename_map, inplace=True)
 
-
-
 data = data.drop(['Timestamp'], axis=1)
 
 print(data.columns)

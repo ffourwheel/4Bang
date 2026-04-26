@@ -1,126 +1,180 @@
+# ===============================
+# 1) Import Library
+# ===============================
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+
+from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score
+
+font_path = "C:/Windows/Fonts/tahoma.ttf"
+thai_font = fm.FontProperties(fname=font_path)
+
+plt.rcParams['font.family'] = thai_font.get_name()
+plt.rcParams['axes.unicode_minus'] = False
+
+df = pd.read_csv('./models/data/cleansing_water_data.csv')
+
+df_clean = df[df['use_cleansing_water'] == 'ใช้'].copy()
+
+print("--- จำนวนข้อมูลทั้งหมด ---")
+print(df.shape)
+
+print("\n--- จำนวนคนที่ใช้ Cleansing Water ---")
+print(df_clean.shape)
+
+factor_cols = [c for c in df_clean.columns if c.startswith('factor_')]
+
+print("\n--- Factor ที่ใช้ทำ Clustering ---")
+print(factor_cols)
+
+for col in factor_cols:
+    df_clean[col] = df_clean[col].fillna(df_clean[col].median())
+
+X = df_clean[factor_cols].copy()
+
+X_pattern = X.div(X.sum(axis=1), axis=0)
+X_pattern = X_pattern.fillna(0)
+
+X_final = (X * 0.5) + (X_pattern * 0.5)
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X_final)
+
+K_range = range(2, 7)
+silhouette_scores = []
+
+for k in K_range:
+    temp_kmeans = KMeans(
+        n_clusters=k,
+        random_state=42,
+        n_init=100,
+        max_iter=500
+    )
+    
+    temp_labels = temp_kmeans.fit_predict(X_scaled)
+    score = silhouette_score(X_scaled, temp_labels)
+    silhouette_scores.append(score)
+
+print("\n--- Silhouette Score ของแต่ละ k ---")
+for k, score in zip(K_range, silhouette_scores):
+    print(f"k = {k}, Silhouette Score = {score:.4f}")
+
+
+plt.figure(figsize=(8, 5))
+plt.plot(K_range, silhouette_scores, marker='o')
+plt.title('Silhouette Score เพื่อดูจำนวน Cluster ที่เหมาะสม')
+plt.xlabel('จำนวน Cluster')
+plt.ylabel('Silhouette Score')
+plt.tight_layout()
+plt.show()
+
+best_k = 3
+
+kmeans = KMeans(
+    n_clusters=best_k,
+    random_state=42,
+    n_init=100,
+    max_iter=500
+)
+
+df_clean['cluster'] = kmeans.fit_predict(X_scaled)
+
+print("\n--- จำนวนคนในแต่ละ Cluster ---")
+print(df_clean['cluster'].value_counts().sort_index())
+
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_scaled)
+
+print("\n--- PCA อธิบายข้อมูลได้รวม ---")
+print(pca.explained_variance_ratio_.sum())
+
+df_clean['pca1'] = X_pca[:, 0]
+df_clean['pca2'] = X_pca[:, 1]
+
+plt.figure(figsize=(8, 6))
+sns.scatterplot(
+    x='pca1',
+    y='pca2',
+    hue='cluster',
+    data=df_clean,
+    palette='Set1',
+    s=90,
+    edgecolor='black'
+)
+
+plt.title('การแบ่งกลุ่มลูกค้า Cleansing Water ด้วย K-Means จำนวน 3 กลุ่ม')
+plt.xlabel('PCA 1')
+plt.ylabel('PCA 2')
+plt.legend(title='Cluster')
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(6, 4))
+sns.countplot(x='cluster', data=df_clean, palette='Set1')
+plt.title('จำนวนคนในแต่ละ Cluster')
+plt.xlabel('Cluster')
+plt.ylabel('จำนวนคน')
+plt.tight_layout()
+plt.show()
+
+cluster_profile = df_clean.groupby('cluster')[factor_cols].mean()
+
+print("\n--- ค่าเฉลี่ยปัจจัยในการเลือกซื้อของแต่ละ Cluster ---")
+print(cluster_profile)
+
+plt.figure(figsize=(12, 6))
+sns.heatmap(cluster_profile, annot=True, cmap='coolwarm', fmt='.2f')
+plt.title('ค่าเฉลี่ยปัจจัยในการเลือกซื้อของแต่ละ Cluster')
+plt.xlabel('ปัจจัยในการเลือกซื้อ')
+plt.ylabel('Cluster')
+plt.tight_layout()
+plt.show()
+
+print("\n--- สรุปลักษณะเด่นของแต่ละ Cluster ---")
+
+for cluster in sorted(df_clean['cluster'].unique()):
+    print("=" * 60)
+    print(f"Cluster {cluster}")
+    print("จำนวนคน:", len(df_clean[df_clean['cluster'] == cluster]))
+
+    print("\nปัจจัยที่ให้ความสำคัญสูงสุด:")
+    print(cluster_profile.loc[cluster].sort_values(ascending=False).head(5))
+
+    print("\nปัจจัยที่ให้ความสำคัญต่ำสุด:")
+    print(cluster_profile.loc[cluster].sort_values(ascending=True).head(3))
+
+cluster_names = {
+    0: 'กลุ่มเน้นความอ่อนโยนและไม่ระคายเคือง',
+    1: 'กลุ่มเน้นประสิทธิภาพการทำความสะอาด',
+    2: 'กลุ่มเน้นการดูแลปัญหาผิวและสิว'
+}
+
+df_clean['cluster_name'] = df_clean['cluster'].map(cluster_names)
+
+print("\n--- ตัวอย่างข้อมูลพร้อมชื่อ Cluster ---")
+print(df_clean[['cluster', 'cluster_name']].head())
+
+import os
 import joblib
 
-# -----------------------------
-# 1. LOAD & CLEAN DATA
-# -----------------------------
-def load_data(path):
-    df = pd.read_csv(path)
-    df = df[df['use_cleansing_water'] == 'ใช้'].copy()
-    return df
+public_dir = '../modo-app/public'
+models_dir = '../models/unsupervised'
 
+if os.path.exists('modo-app'):
+    public_dir = 'modo-app/public'
+    models_dir = 'models/unsupervised'
 
-# -----------------------------
-# 2. PREPROCESSING
-# -----------------------------
-def preprocess(df):
-    factor_cols = [col for col in df.columns if col.startswith('factor_')]
+os.makedirs(public_dir, exist_ok=True)
+os.makedirs(models_dir, exist_ok=True)
 
-    # fill missing
-    for col in factor_cols:
-        df[col] = df[col].fillna(df[col].median())
+df_clean.to_json(os.path.join(public_dir, 'cluster_result.json'), orient='records', force_ascii=False)
+cluster_profile.reset_index().to_json(os.path.join(public_dir, 'cluster_profile.json'), orient='records', force_ascii=False)
 
-    df['concerns'] = df['concerns'].fillna('')
-    df['skin_type'] = df['skin_type'].fillna('ไม่ระบุ')
-    df['age'] = df['age'].fillna('ไม่ระบุ')
-    df['monthly_income'] = df['monthly_income'].fillna('ไม่ระบุ')
-
-    return df, factor_cols
-
-
-# -----------------------------
-# 3. FEATURE ENGINEERING
-# -----------------------------
-def get_dummies_multiselect(series, prefix):
-    return series.str.get_dummies(sep=',').add_prefix(f'{prefix}_')
-
-
-def create_features(df, factor_cols):
-    concerns_df = get_dummies_multiselect(df['concerns'], 'concern')
-    skin_type_df = pd.get_dummies(df['skin_type'], prefix='skin')
-
-    le_age = LabelEncoder()
-    le_income = LabelEncoder()
-
-    df['age_encoded'] = le_age.fit_transform(df['age'])
-    df['income_encoded'] = le_income.fit_transform(df['monthly_income'])
-
-    X = pd.concat([
-        df[factor_cols],
-        concerns_df,
-        skin_type_df,
-        df[['age_encoded', 'income_encoded']]
-    ], axis=1)
-
-    return X
-
-
-# -----------------------------
-# 4. SCALING
-# -----------------------------
-def scale_features(X):
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    return X_scaled, scaler
-
-
-# -----------------------------
-# 5. TRAIN MODEL
-# -----------------------------
-def train_kmeans(X_scaled, k=3):
-    model = KMeans(n_clusters=k, random_state=42, n_init=10)
-    labels = model.fit_predict(X_scaled)
-    return model, labels
-
-
-# -----------------------------
-# 6. PCA (OPTIONAL - FOR VISUALIZATION)
-# -----------------------------
-def apply_pca(X_scaled):
-    pca = PCA(n_components=2)
-    return pca.fit_transform(X_scaled)
-
-
-# -----------------------------
-# 7. SAVE MODEL
-# -----------------------------
-def save_model(model, scaler, path_model, path_scaler):
-    joblib.dump(model, path_model)
-    joblib.dump(scaler, path_scaler)
-
-
-# -----------------------------
-# 8. MAIN PIPELINE
-# -----------------------------
-def run_pipeline(data_path):
-    df = load_data(data_path)
-
-    df, factor_cols = preprocess(df)
-    X = create_features(df, factor_cols)
-
-    X_scaled, scaler = scale_features(X)
-    model, labels = train_kmeans(X_scaled, k=3)
-
-    df['cluster'] = labels
-
-    save_model(
-        model,
-        scaler,
-        "models/unsupervised/kmeans.pkl",
-        "models/unsupervised/scaler.pkl"
-    )
-
-    df.to_json("modo-app/public/cluster_result.json",
-               orient="records", force_ascii=False)
-
-    return df, model
-
-
-# -----------------------------
-# RUN
-# -----------------------------
-if __name__ == "__main__":
-    run_pipeline("models/data/cleansing_water_data.csv")
+joblib.dump(kmeans, os.path.join(models_dir, 'kmeans.pkl'))
+joblib.dump(scaler, os.path.join(models_dir, 'scaler.pkl'))
+joblib.dump(pca, os.path.join(models_dir, 'pca.pkl'))
