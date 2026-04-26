@@ -116,7 +116,7 @@ export default function Home() {
                     <tr className="hover:bg-white/5 transition-colors">
                       <td className="py-3 px-4 text-indigo-300 font-medium">brand_primary</td>
                       <td className="py-3 px-4">Categorical (Target)</td>
-                      <td className="py-3 px-4">แบรนด์ที่ใช้งานเป็นหลักในปัจจุบัน (ใช้เป็น <strong>Target Variable</strong> ในการทำโมเดลว่าใช้ Kiyora หรือไม่)</td>
+                      <td className="py-3 px-4">แบรนด์ที่ใช้งานเป็นหลักในปัจจุบัน ใช้เป็น <strong>Target Variable</strong> ในการทำโมเดลว่าใช้ Kiyora หรือไม่</td>
                     </tr>
                   </tbody>
                 </table>
