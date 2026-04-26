@@ -15,22 +15,17 @@ ChartJS.register(
   RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend
 );
 
-// ========== Helper ==========
-
-// นับจำนวนแต่ละค่า
 function countBy(arr: string[]) {
   const map: Record<string, number> = {};
   for (const v of arr) map[v] = (map[v] || 0) + 1;
   return map;
 }
 
-// หาค่าเฉลี่ย
 function avg(nums: number[]) {
   if (!nums.length) return 0;
   return nums.reduce((a, b) => a + b, 0) / nums.length;
 }
 
-// คำนวณ Pearson Correlation
 function pearson(a: number[], b: number[]) {
   const n = a.length;
   if (!n) return 0;
@@ -48,7 +43,6 @@ function pearson(a: number[], b: number[]) {
   return d === 0 ? 0 : xy / d;
 }
 
-// สี heatmap (coolwarm)
 function heatColor(v: number) {
   const t = (v + 1) / 2;
   const r = Math.round(t < 0.5 ? 59 + t * 2 * 196 : 255);
@@ -57,7 +51,6 @@ function heatColor(v: number) {
   return `rgb(${r},${g},${b})`;
 }
 
-// ========== Heatmap (canvas) ==========
 function Heatmap({ labels, values }: { labels: string[]; values: number[][] }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -105,23 +98,19 @@ function Heatmap({ labels, values }: { labels: string[]; values: number[][] }) {
   return <canvas ref={ref} width={680} height={560} style={{ width: "100%", maxWidth: 680, margin: "0 auto", display: "block" }} />;
 }
 
-// ========== สีและ Type ==========
 type Row = Record<string, any>;
 type ModelRow = Record<string, any>;
 
-// สีหลัก (hex อ่านง่าย)
 const colors = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#6b7280"];
 const gridColor = "#ffffff10";
 const textColor = "#ccc";
 const mutedColor = "#999";
 
-// ========== Component หลัก ==========
 export default function Supervise() {
   const [rows, setRows] = useState<Row[]>([]);
   const [models, setModels] = useState<ModelRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Prediction State
   const [predictionLoading, setPredictionLoading] = useState(false);
   const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
 
@@ -137,25 +126,20 @@ export default function Supervise() {
   if (loading) return <div className="sv-center"><div className="spinner" /><p> Loading</p></div>;
   if (!rows.length) return <div className="sv-center"><p>Error</p></div>;
 
-  // ===== สถิติ =====
   const total = rows.length;
   const kiyora = rows.filter(r => r.uses_kiyora === 1).length;
   const pct = ((kiyora / total) * 100).toFixed(1);
 
-  // ดึง metric keys จาก model_results.json อัตโนมัติ
   const metricKeys = models.length ? Object.keys(models[0]).filter(k => k !== "Model") : [];
 
-  // factor columns
   const fCols = Object.keys(rows[0]).filter(k => k.startsWith("factor_"));
   const fLabels = fCols.map(k => k.replace("factor_", "").replaceAll("_", " "));
   const fAvg = fCols.map(k => +avg(rows.map(r => Number(r[k]) || 0)).toFixed(2));
 
-  // demographics
   const ages = countBy(rows.map(r => String(r.age)));
   const ageKeys = Object.keys(ages).sort();
   const skins = countBy(rows.map(r => String(r.skin_type)));
 
-  // correlation
   const yArr = rows.map(r => Number(r.uses_kiyora));
   const corrList = fCols.map((k, i) => ({
     label: fLabels[i],
@@ -163,14 +147,12 @@ export default function Supervise() {
   })).sort((a, b) => b.val - a.val);
   const top5 = corrList.slice(0, 5);
 
-  // heatmap matrix
   const hmCols = [...fCols, "uses_kiyora"];
   const hmLabels = hmCols.map(k => k.replace("factor_", "").replaceAll("_", " "));
   const hmValues = hmCols.map(a =>
     hmCols.map(b => +pearson(rows.map(r => Number(r[a]) || 0), rows.map(r => Number(r[b]) || 0)).toFixed(4))
   );
 
-  // chart style ใช้ซ้ำ
   const grid = { color: gridColor };
   const xAxis = { ticks: { color: textColor }, grid: { display: false } };
   const yAxis = { ticks: { color: mutedColor }, grid };
@@ -184,7 +166,7 @@ export default function Supervise() {
       let isMock = false;
 
       try {
-        const res = await fetch("/detect", {
+        const res = await fetch("http://localhost:8000/detect", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -192,7 +174,6 @@ export default function Supervise() {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const data = await res.json();
 
-        // Handle the API response flexibly
         probability = typeof data.probability === 'number' ? data.probability :
           (data.prediction === 1 ? Math.random() * 20 + 80 : Math.random() * 20 + 20);
         shouldUse = data.shouldUse !== undefined ? data.shouldUse :
@@ -208,8 +189,6 @@ export default function Supervise() {
         shouldUse = !!isTarget;
         probability = shouldUse ? Math.floor(Math.random() * 15) + 80 : Math.floor(Math.random() * 20) + 20;
       }
-
-      // Generate Insight locally
       let insight = "";
       if (shouldUse) {
         if (payload["skin_ผิวมัน"] && payload.factor_oil_control >= 4) {
@@ -245,13 +224,11 @@ export default function Supervise() {
   };
 
   return (
-    <div className="sv min-h-screen bg-gray-950 pb-16">
+    <div className="sv min-h-screen pb-16">
       <div className="sv-header pt-8">
         <h2> Supervised Learning Dashboard</h2>
         <p> Supervised Learning • วิเคราะห์ปัจจัยการเลือกใช้ Kiyora ข้อมูล {total} ตัวอย่าง</p>
       </div>
-
-      {/* ===== Prediction Section ===== */}
       <div className="px-4 sm:px-8 max-w-7xl mx-auto space-y-8 mb-16">
         <PredictionForm
           onSubmit={handlePredict}
@@ -263,20 +240,14 @@ export default function Supervise() {
           <ResultCard result={predictionResult} />
         )}
       </div>
-
       <div className="px-4 sm:px-8 max-w-7xl mx-auto">
-        {/* Stats */}
         <div className="sv-stats">
           <div className="sv-stat"><span className="sv-num">{total}</span>ตัวอย่างทั้งหมด</div>
           <div className="sv-stat"><span className="sv-num c-indigo">{kiyora}</span>ใช้ Kiyora</div>
           <div className="sv-stat"><span className="sv-num c-gray">{total - kiyora}</span>ไม่ใช้ Kiyora</div>
           <div className="sv-stat"><span className="sv-num c-green">{pct}%</span>อัตราใช้ Kiyora</div>
         </div>
-
-        {/* ===== Model Performance ===== */}
         <h3 className="sv-section"> Model Performance</h3>
-
-        {/* ตาราง — ดึง column headers จาก JSON */}
         <div className="sv-card">
           <table className="sv-table">
             <thead>
@@ -299,7 +270,6 @@ export default function Supervise() {
         </div>
 
         <div className="sv-row">
-          {/* กราฟ bar — สร้าง dataset จาก metricKeys อัตโนมัติ */}
           <div className="sv-card">
             <h4>Model Comparison</h4>
             <div className="sv-chart">
@@ -325,7 +295,6 @@ export default function Supervise() {
               />
             </div>
           </div>
-
           <div className="sv-card">
             <h4>สัดส่วนผู้ใช้ Kiyora</h4>
             <div className="sv-chart">
@@ -345,10 +314,7 @@ export default function Supervise() {
             <p className="sv-chart-note">{pct}% ของผู้ใช้ Cleansing Water เลือก Kiyora</p>
           </div>
         </div>
-
-        {/* ===== Correlation ===== */}
         <h3 className="sv-section"> Correlation Analysis</h3>
-
         <div className="sv-row">
           <div className="sv-card">
             <h4>Top 5 Correlation → Kiyora</h4>
@@ -380,10 +346,7 @@ export default function Supervise() {
             <Heatmap labels={hmLabels} values={hmValues} />
           </div>
         </div>
-
-        {/* ===== Demographics ===== */}
         <h3 className="sv-section"> Demographics</h3>
-
         <div className="sv-row">
           <div className="sv-card">
             <h4>กลุ่มอายุ</h4>
@@ -420,8 +383,6 @@ export default function Supervise() {
             </div>
           </div>
         </div>
-
-        {/* Factor Radar */}
         <div className="sv-card">
           <h4> ปัจจัยในการเลือกซื้อ (เฉลี่ย 1-5)</h4>
           <div className="sv-chart sv-chart-lg">
